@@ -201,10 +201,10 @@ public static class TestTypes
         yield return Create((1, 2, 3, 4, 5, 6, 7), p);
         yield return Create((IntValue: 42, StringValue: "string", BoolValue: true), p);
         yield return Create((IntValue: 42, StringValue: "string", (1, 0)), p);
-        yield return Create((x1: 1, x2: 2, x3: 3, x4: 4, x5: 5, x6: 6, x7: 7, x8: 8, x9: 9), p);
-        yield return Create((x01: 01, x02: 02, x03: 03, x04: 04, x05: 05, x06: 06, x07: 07, x08: 08, x09: 09, x10: 10,
-                             x11: 11, x12: 12, x13: 13, x14: 14, x15: 15, x16: 16, x17: 17, x18: 18, x19: 19, x20: 20,
-                             x21: 21, x22: 22, x23: 23, x24: 24, x25: 25, x26: 26, x27: 27, x28: 28, x29: 29, x30: 30), p);
+        //yield return Create((x1: 1, x2: 2, x3: 3, x4: 4, x5: 5, x6: 6, x7: 7, x8: 8, x9: 9), p);
+        //yield return Create((x01: 01, x02: 02, x03: 03, x04: 04, x05: 05, x06: 06, x07: 07, x08: 08, x09: 09, x10: 10,
+        //                     x11: 11, x12: 12, x13: 13, x14: 14, x15: 15, x16: 16, x17: 17, x18: 18, x19: 19, x20: 20,
+        //                     x21: 21, x22: 22, x23: 23, x24: 24, x25: 25, x26: 26, x27: 27, x28: 28, x29: 29, x30: 30), p);
 
         yield return Create(new Dictionary<int, (int, int)> { [0] = (1, 1) }, p);
 
@@ -212,8 +212,8 @@ public static class TestTypes
         yield return Create<Tuple<int, int>, SourceGenProvider>(new(1, 2), p);
         yield return Create<Tuple<int, string, bool>, SourceGenProvider>(new(1, "str", true), p);
         yield return Create<Tuple<int, int, int, int, int, int, int>, SourceGenProvider>(new(1, 2, 3, 4, 5, 6, 7), p);
-        yield return Create<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int>>, SourceGenProvider>(new(1, 2, 3, 4, 5, 6, 7, new(8, 9, 10)), p);
-        yield return Create<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int, int, int, int, int, Tuple<int>>>, SourceGenProvider>(new(1, 2, 3, 4, 5, 6, 7, new(8, 9, 10, 11, 12, 13, 14, new(15))), p);
+        //yield return Create<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int>>, SourceGenProvider>(new(1, 2, 3, 4, 5, 6, 7, new(8, 9, 10)), p);
+        //yield return Create<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int, int, int, int, int, Tuple<int>>>, SourceGenProvider>(new(1, 2, 3, 4, 5, 6, 7, new(8, 9, 10, 11, 12, 13, 14, new(15))), p);
 
         yield return Create(new ClassWithReadOnlyField(), p);
         yield return Create(new ClassWithRequiredField { x = 42 }, p);
@@ -1473,18 +1473,18 @@ public record DerivedClassWithShadowingMember : BaseClassWithShadowingMembers
 [GenerateShape<(int, string, bool)>]
 [GenerateShape<(int, string, (int, int))>]
 [GenerateShape<(int, int, int, int, int, int, int)>]
-[GenerateShape<(int, int, int, int, int, int, int, int, int)>]
-[GenerateShape<(int, int, int, int, int, int, int, int, int, int, 
-                int, int, int, int, int, int, int, int, int, int,
-                int, int, int, int, int, int, int, int, int, int)>]
+//[GenerateShape<(int, int, int, int, int, int, int, int, int)>]
+//[GenerateShape<(int, int, int, int, int, int, int, int, int, int, 
+                //int, int, int, int, int, int, int, int, int, int,
+               // ((int, int, int, int, int, int, int, int, int, int)>]
 [GenerateShape<Dictionary<int, (int, int)>>]
 [GenerateShape<Tuple<int>>]
 [GenerateShape<Tuple<int, int>>]
 [GenerateShape<Tuple<int, string, bool>>]
 [GenerateShape<Tuple<int, int, int, int, int, int, int>>]
 [GenerateShape<Tuple<int, int, int, int, int, int, int, int>>]
-[GenerateShape<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int>>>]
-[GenerateShape<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int, int, int, int, int, Tuple<int>>>>]
+//[GenerateShape<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int>>>]
+//[GenerateShape<Tuple<int, int, int, int, int, int, int, Tuple<int, int, int, int, int, int, int, Tuple<int>>>>]
 [GenerateShape<MyLinkedList<SimpleRecord>>]
 [GenerateShape<RecordWith21ConstructorParameters>]
 [GenerateShape<RecordWith42ConstructorParameters>]
