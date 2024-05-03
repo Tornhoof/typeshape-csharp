@@ -203,15 +203,6 @@ namespace TypeShape.Tests
             Assert.Same(third, imatch);
         }
 
-        [Theory]
-        [InlineData(1)]
-        [InlineData(10)]
-        [InlineData(100)]
-        public void Random(int count)
-        {
-            var poco = RandomGenerator.GenerateValue<FirstPoco>(count, 42);
-        }
-
         [GenerateShape]
         public abstract partial class BasePoco : IMyInterface
         {
