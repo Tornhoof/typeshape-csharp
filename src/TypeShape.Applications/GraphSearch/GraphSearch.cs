@@ -14,7 +14,7 @@ public static partial class GraphSearch
     public static MatchDelegate<T, TMatch> Create<T, TMatch>(ITypeShapeProvider provider) where T : TMatch
         => Create<T, TMatch>(provider.Resolve<T>());
 
-    public static TMatch? Find<T, TMatch>(this MatchDelegate<T, TMatch> bfs, T value, Predicate<TMatch> predicate)
+    public static TMatch? FindFirst<T, TMatch>(this MatchDelegate<T, TMatch> matcher, T value, Predicate<TMatch> predicate)
         where T : TMatch
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -23,13 +23,13 @@ public static partial class GraphSearch
             return value;
         }
 
-        return bfs(value, predicate);
+        return matcher(value, predicate);
     }
 
-    public static TMatch? Find<T, TMatch>(T value, Predicate<TMatch> predicate) where T : ITypeShapeProvider<T>, TMatch
+    public static TMatch? FindFirst<T, TMatch>(T value, Predicate<TMatch> predicate) where T : ITypeShapeProvider<T>, TMatch
         => GraphSearchCache<T, TMatch, T>.Value(value, predicate);
 
-    public static TMatch? Find<T, TMatch, TProvider>(T value, Predicate<TMatch> predicate) where T : TMatch
+    public static TMatch? FindFirst<T, TMatch, TProvider>(T value, Predicate<TMatch> predicate) where T : TMatch
         where TProvider : ITypeShapeProvider<T>
         => GraphSearchCache<T, TMatch, TProvider>.Value(value, predicate);
 

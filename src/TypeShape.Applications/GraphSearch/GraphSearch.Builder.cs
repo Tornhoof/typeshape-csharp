@@ -1,6 +1,4 @@
-﻿using System.Xml.Linq;
-using TypeShape.Abstractions;
-using TypeShape.Applications.PrettyPrinter;
+﻿using TypeShape.Abstractions;
 
 namespace TypeShape.Applications.GraphSearch
 {
