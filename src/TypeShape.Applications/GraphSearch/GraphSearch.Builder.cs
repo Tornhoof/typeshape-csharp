@@ -1,118 +1,108 @@
-﻿using System.Collections.Generic;
-using System.Xml.Linq;
-using TypeShape.Abstractions;
-using TypeShape.Applications.PrettyPrinter;
+﻿using TypeShape.Abstractions;
 
-namespace TypeShape.Applications.GraphSearch;
-
-public static partial class GraphSearch
+namespace TypeShape.Applications.GraphSearch
 {
-    private sealed class Builder : TypeShapeVisitor
+    public static partial class GraphSearch
     {
-        private readonly TypeDictionary _cache = new();
-
-        public BreadthFirstSearch<T, TMatch> BuildBreadthFirstSearch<T, TMatch>(ITypeShape<T> shape)
+        private sealed class Builder<TMatch> : TypeShapeVisitor
         {
-            return _cache.GetOrAdd<BreadthFirstSearch<T, TMatch>>(
-                shape,
-                this,
-                delayedValueFactory: self => (value, predicate) => self.Result(value, predicate), typeof(TMatch));
-        }
+            private readonly TypeDictionary _cache = new();
 
-        public DepthFirstSearch<T, TMatch> BuildDepthFirstSearch<T, TMatch>(ITypeShape<T> shape)
-        {
-            return _cache.GetOrAdd<DepthFirstSearch<T, TMatch>>(
-                shape,
-                this,
-                delayedValueFactory: self => (value, predicate) => self.Result(value, predicate), typeof(TMatch)); 
-        }
+            public BreadthFirstSearch<T, TMatch> BuildBreadthFirstSearch<T>(ITypeShape<T> shape)
+            {
+                return _cache.GetOrAdd<BreadthFirstSearch<T, TMatch>>(
+                    shape,
+                    this,
+                    self => (value, predicate) => self.Result(value, predicate));
+            }
 
-        public override object? VisitDictionary<TDictionary, TKey, TValue>(
-            IDictionaryShape<TDictionary, TKey, TValue> dictionaryShape, object? state = null)
-        {
-            if (state is Type t && typeof(TValue) == t)
+            public DepthFirstSearch<T, TMatch> BuildDepthFirstSearch<T>(ITypeShape<T> shape)
+            {
+                return _cache.GetOrAdd<DepthFirstSearch<T, TMatch>>(
+                    shape,
+                    this,
+                    self => (value, predicate) => self.Result(value, predicate));
+            }
+
+            public override object? VisitDictionary<TDictionary, TKey, TValue>(
+                IDictionaryShape<TDictionary, TKey, TValue> dictionaryShape, object? state = null)
             {
                 var getter = dictionaryShape.GetGetDictionary();
-                return new BreadthFirstSearch<TDictionary, TValue>((value, predicate) =>
+                var valueTypeShape = BuildBreadthFirstSearch(dictionaryShape.ValueType);
+                return new BreadthFirstSearch<TDictionary, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
                         var dict = getter(value);
                         foreach (var (_, kvpValue) in dict)
-                            if (predicate(kvpValue))
-                                return kvpValue;
+                        {
+                            valueTypeShape(kvpValue, predicate);
+                        }
                     }
 
                     return default;
                 });
             }
 
-            return null;
-        }
-
-        public override object? VisitEnumerable<TEnumerable, TElement>(
-            IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, object? state = null)
-        {
-            if (state is Type t && typeof(TElement) == t)
+            public override object? VisitEnumerable<TEnumerable, TElement>(
+                IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, object? state = null)
             {
                 var getter = enumerableShape.GetGetEnumerable();
-                return new BreadthFirstSearch<TEnumerable, TElement>((value, predicate) =>
+                var elementBfs = BuildBreadthFirstSearch(enumerableShape.ElementType);
+                return new BreadthFirstSearch<TEnumerable, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
                         var enumerable = getter(value);
                         foreach (var element in enumerable)
-                            if (predicate(element))
-                                return element;
+                        {
+                            elementBfs(element, predicate);
+                        }
                     }
 
                     return default;
                 });
             }
 
-            return null;
-        }
-
-        public override object? VisitProperty<TDeclaringType, TPropertyType>(
-            IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
-        {
-            if (state is Type t && typeof(TPropertyType) == t)
+            public override object? VisitProperty<TDeclaringType, TPropertyType>(
+                IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
             {
                 var getter = propertyShape.GetGetter();
-                return new BreadthFirstSearch<TDeclaringType, TPropertyType>((value, predicate) =>
+                var propBfs = BuildBreadthFirstSearch(propertyShape.PropertyType);
+                return new BreadthFirstSearch<TDeclaringType, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
                         var propValue = getter(ref value);
-                        if (predicate(propValue)) return propValue;
+                        propBfs(propValue, predicate);
                     }
 
                     return default;
                 });
             }
 
-            return null;
-        }
-
-        public override object? VisitType<T>(ITypeShape<T> typeShape, object? state = null)
-        {
-            IPropertyShape[] properties = typeShape
-                .GetProperties()
-                .Where(prop => prop.HasGetter)
-                .Select(prop => (IPropertyShape?) prop.Accept(this, state)!)
-                .Where(prop => prop is not null)
-                .ToArray();
-            List<Delegate> delegates = new();
-            foreach (var propertyShape in properties)
+            public override object? VisitType<T>(ITypeShape<T> typeShape, object? state = null)
             {
-                Delegate? del = (Delegate?) propertyShape.Accept(this, state);
-                if (del is not null)
-                {
-                    delegates.Add(del);
-                }
-            }
+                var bfsFunctors = typeShape
+                    .GetProperties()
+                    .Where(prop => prop.HasGetter)
+                    .Select(prop => (BreadthFirstSearch<T, TMatch>?) prop.Accept(this, state)!)
+                    .Where(prop => prop is not null)
+                    .ToArray();
 
-            return Delegate.Combine(delegates.ToArray());
+                return new BreadthFirstSearch<T, TMatch>((value, predicate) =>
+                {
+                    if (value is not null)
+                    {
+                        foreach (var breadthFirstSearch in bfsFunctors)
+                        {
+                            breadthFirstSearch(value, predicate);
+                        }
+                    }
+
+                    return default;
+                });
+            }
         }
     }
 }
