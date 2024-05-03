@@ -1,4 +1,6 @@
-﻿using TypeShape.Abstractions;
+﻿using System.Xml.Linq;
+using TypeShape.Abstractions;
+using TypeShape.Applications.PrettyPrinter;
 
 namespace TypeShape.Applications.GraphSearch
 {
@@ -8,35 +10,35 @@ namespace TypeShape.Applications.GraphSearch
         {
             private readonly TypeDictionary _cache = new();
 
-            public BreadthFirstSearch<T, TMatch> BuildBreadthFirstSearch<T>(ITypeShape<T> shape)
+            public MatchDelegate<T, TMatch> BuildDelegate<T>(ITypeShape<T> shape)
             {
-                return _cache.GetOrAdd<BreadthFirstSearch<T, TMatch>>(
+                return _cache.GetOrAdd<MatchDelegate<T, TMatch>>(
                     shape,
                     this,
                     self => (value, predicate) => self.Result(value, predicate));
             }
-
-            public DepthFirstSearch<T, TMatch> BuildDepthFirstSearch<T>(ITypeShape<T> shape)
-            {
-                return _cache.GetOrAdd<DepthFirstSearch<T, TMatch>>(
-                    shape,
-                    this,
-                    self => (value, predicate) => self.Result(value, predicate));
-            }
-
-            public override object? VisitDictionary<TDictionary, TKey, TValue>(
+            
+            public override object VisitDictionary<TDictionary, TKey, TValue>(
                 IDictionaryShape<TDictionary, TKey, TValue> dictionaryShape, object? state = null)
             {
                 var getter = dictionaryShape.GetGetDictionary();
-                var valueTypeShape = BuildBreadthFirstSearch(dictionaryShape.ValueType);
-                return new BreadthFirstSearch<TDictionary, TMatch>((value, predicate) =>
+                var valueMatcher = BuildDelegate(dictionaryShape.ValueType);
+                return new MatchDelegate<TDictionary, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
                         var dict = getter(value);
                         foreach (var (_, kvpValue) in dict)
                         {
-                            valueTypeShape(kvpValue, predicate);
+                            if (kvpValue is TMatch m && predicate(m))
+                            {
+                                return m;
+                            }
+
+                            if (valueMatcher(kvpValue, predicate) is { } mn)
+                            {
+                                return mn;
+                            }
                         }
                     }
 
@@ -44,19 +46,27 @@ namespace TypeShape.Applications.GraphSearch
                 });
             }
 
-            public override object? VisitEnumerable<TEnumerable, TElement>(
+            public override object VisitEnumerable<TEnumerable, TElement>(
                 IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, object? state = null)
             {
                 var getter = enumerableShape.GetGetEnumerable();
-                var elementBfs = BuildBreadthFirstSearch(enumerableShape.ElementType);
-                return new BreadthFirstSearch<TEnumerable, TMatch>((value, predicate) =>
+                var elementMatcher = BuildDelegate(enumerableShape.ElementType);
+                return new MatchDelegate<TEnumerable, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
                         var enumerable = getter(value);
                         foreach (var element in enumerable)
                         {
-                            elementBfs(element, predicate);
+                            if (element is TMatch m && predicate(m))
+                            {
+                                return m;
+                            }
+
+                            if (elementMatcher(element, predicate) is { } mn)
+                            {
+                                return mn;
+                            }
                         }
                     }
 
@@ -64,39 +74,78 @@ namespace TypeShape.Applications.GraphSearch
                 });
             }
 
-            public override object? VisitProperty<TDeclaringType, TPropertyType>(
-                IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
+            public override object VisitNullable<T>(INullableTypeShape<T> nullableShape, object? state = null)
+                where T : struct
             {
-                var getter = propertyShape.GetGetter();
-                var propBfs = BuildBreadthFirstSearch(propertyShape.PropertyType);
-                return new BreadthFirstSearch<TDeclaringType, TMatch>((value, predicate) =>
+                var elementMatcher = BuildDelegate(nullableShape.ElementType);
+                return new MatchDelegate<T?, TMatch>((value, predicate) =>
                 {
-                    if (value is not null)
+                    if (value is { } v)
                     {
-                        var propValue = getter(ref value);
-                        propBfs(propValue, predicate);
+                        if (v is TMatch m && predicate(m))
+                        {
+                            return m;
+                        }
+
+                        if (elementMatcher(v, predicate) is { } mn)
+                        {
+                            return mn;
+                        }
                     }
 
                     return default;
                 });
             }
 
-            public override object? VisitType<T>(ITypeShape<T> typeShape, object? state = null)
+            public override object VisitProperty<TDeclaringType, TPropertyType>(
+                IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
             {
-                var bfsFunctors = typeShape
-                    .GetProperties()
-                    .Where(prop => prop.HasGetter)
-                    .Select(prop => (BreadthFirstSearch<T, TMatch>?) prop.Accept(this, state)!)
-                    .Where(prop => prop is not null)
-                    .ToArray();
-
-                return new BreadthFirstSearch<T, TMatch>((value, predicate) =>
+                var getter = propertyShape.GetGetter();
+                var propMatcher = BuildDelegate(propertyShape.PropertyType);
+                return new MatchDelegate<TDeclaringType, TMatch>((value, predicate) =>
                 {
                     if (value is not null)
                     {
-                        foreach (var breadthFirstSearch in bfsFunctors)
+                        var propValue = getter(ref value);
+                        if (propValue is TMatch m && predicate(m))
                         {
-                            breadthFirstSearch(value, predicate);
+                            return m;
+                        }
+
+                        if (propMatcher(propValue, predicate) is { } mn)
+                        {
+                            return mn;
+                        }
+                    }
+
+                    return default;
+                });
+            }
+
+            public override object VisitType<T>(ITypeShape<T> typeShape, object? state = null)
+            {
+                var propMatchers = typeShape
+                    .GetProperties()
+                    .Where(prop => prop.HasGetter)
+                    .Select(prop => (MatchDelegate<T, TMatch>?) prop.Accept(this, state)!)
+                    .Where(prop => prop is not null)
+                    .ToArray();
+
+                return new MatchDelegate<T, TMatch>((value, predicate) =>
+                {
+                    if (value is not null)
+                    {
+                        if (value is TMatch m && predicate(m))
+                        {
+                            return m;
+                        }
+
+                        foreach (var propMatch in propMatchers)
+                        {
+                            if (propMatch(value, predicate) is { } mn)
+                            {
+                                return mn;
+                            }
                         }
                     }
 
